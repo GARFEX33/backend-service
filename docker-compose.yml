@@ -1,0 +1,44 @@
+version: '3.8'
+
+volumes:
+  postgres_storage:
+
+networks:
+  netgfx:
+
+services:
+
+  postgres:
+    image: postgres:16-alpine
+    networks: [ 'netgfx' ]
+    restart: unless-stopped
+    ports:
+      - 5432:5432
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    volumes:
+      - postgres_storage:/var/lib/postgresql/data
+    healthcheck:
+      test: [ 'CMD-SHELL', 'pg_isready -h localhost -U ${POSTGRES_USER} -d ${POSTGRES_DB}' ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+  backend-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    networks: [ 'netgfx' ]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_HOST=postgres
+    volumes:
+      - ./app/media:/app/media  
+    ports:
+      - 8000:8000
